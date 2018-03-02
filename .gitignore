@@ -1,0 +1,9 @@
+*.exe
+*.ipynb
+*.pdf
+*.csv
+*.png
+*.m
+*.mlx
+
+Ligo_ab.c
