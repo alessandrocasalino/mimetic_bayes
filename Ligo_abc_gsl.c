@@ -1,4 +1,6 @@
 // Compile with: gcc-7 -O2 -DHAVE_INLINE -DGSL_RANGE_CHECK_OFF Ligo_abc_gsl.c -o Ligo_abc_gsl.exe -lgsl -lgslcblas -fopenmp
+// Run with: ./Ligo_abc_gsl.exe
+// Test running time: time ./Ligo_abc_gsl.exe
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,20 +14,31 @@
 
 #define CSV 0
 
+// PROGRAM VARIABLES
 // Variables for parallelization with OpenMP
 // Info on OpenMP: https://bisqwit.iki.fi/story/howto/openmp/#Syntax
-int OPENMP = 0;
-int OMP_THREAD_NUM = 1;
+int OPENMP = 1;
+int OMP_THREAD_NUM = 8;
 
-// Variables for the output of the program
-int LAG_TEST = 1;
-int CT2_CONSTR = 1;
+// Make the Lag test (can make the computation very long!)
+int LAG_TEST = 0;
+// Ratio of lag function computed with respect to the total number of points in every chain
+double LAG_TEST_STOP_RATIO = 0.001;
 
-// Variables for the MCMC evaluation
-double START[] = {0.,0.,0.};
+
+// NUMERICAL VARIABLES
+// Chain evaluation dimension (every step found from proposal distribution is multiplied by this quantity)
+// This is also used to define the covariance matrix for the Gaussian proposal
 double SPEED[] = {1.,1e-15,1.};
+// Mean value for Gaussian proposal (PROPOSAL=1)
+double MEAN_P1[] = {0.,0.,0.};
+// Number of points in every chain
 int N = 1e6;
 
+// PHYSICAL VARIABLES
+// Choose to use the constraint on Ct2 in the prior
+int CT2_CONSTR = 1;
+// Choose the proposal distribution
 int PROPOSAL = 1;
 
 
@@ -132,8 +145,8 @@ void C_Delta(double (* chain)[3], chain_res results, double f_stop){
   int id_thread = omp_get_thread_num();
 
   double mean_X = gsl_vector_get(results.mean,0);
-  double mean_Y = gsl_vector_get(results.mean,0);
-  double mean_Z = gsl_vector_get(results.mean,0);
+  double mean_Y = gsl_vector_get(results.mean,1);
+  double mean_Z = gsl_vector_get(results.mean,2);
 
   double cm_XX = gsl_matrix_get(results.covariance,0,0);
   double cm_YY = gsl_matrix_get(results.covariance,1,1);
@@ -196,8 +209,36 @@ chain_res LHSampling(int proposal){
 
   gsl_vector * pos_ini = gsl_vector_alloc(3);
   for(k=0;k<3;k++){
-    gsl_vector_set(pos_ini,k,START[k]);
+    if(k==0){
+      double random_number = 2. * gsl_rng_uniform (r) - 1.;
+      gsl_vector_set(pos_ini,k,SPEED[k]*random_number);
+    }
+    else if (k==1){
+      double random_number = gsl_rng_uniform (r);
+      gsl_vector_set(pos_ini,k,SPEED[k]*random_number);
+    }
+    else {
+      double random_number = - gsl_rng_uniform (r);
+      gsl_vector_set(pos_ini,k,SPEED[k]*random_number/2.);
+    }
   }
+
+  // Here definitions only for the Gaussian proposal distribution
+  gsl_vector * pos_mean_p1 = gsl_vector_alloc(3);
+  for(k=0;k<3;k++){
+    gsl_vector_set(pos_mean_p1, k, MEAN_P1[k]);
+  }
+
+  gsl_matrix * S = gsl_matrix_calloc(3,3);
+  gsl_matrix * L = gsl_matrix_alloc(3,3);
+  gsl_vector * pos_temp2 = gsl_vector_alloc(3);
+
+  gsl_matrix_set(S,0,0,pow(SPEED[0],2.));
+  gsl_matrix_set(S,1,1,pow(SPEED[1],2.));
+  gsl_matrix_set(S,2,2,pow(SPEED[2],2.));
+  gsl_matrix_memcpy(L,S);
+  gsl_linalg_cholesky_decomp1(L);
+  // End of Gaussian proposal definitions
 
   gsl_vector * pos = gsl_vector_alloc(3);
   gsl_vector_memcpy(pos,pos_ini);
@@ -226,6 +267,7 @@ chain_res LHSampling(int proposal){
       for(k=0;k<3;k++){
         double random_number = 2. * gsl_rng_uniform (r) - 1.;
         gsl_vector_set(pos_temp, k, SPEED[k]*random_number);
+
       }
 
       gsl_vector_add(pos_temp,pos);
@@ -234,16 +276,6 @@ chain_res LHSampling(int proposal){
 
     else if(proposal=!0){
 
-      gsl_matrix * S = gsl_matrix_calloc(3,3);
-      gsl_matrix * L = gsl_matrix_alloc(3,3);
-      gsl_vector * pos_temp2 = gsl_vector_alloc(3);
-
-      gsl_matrix_set(S,0,0,pow(SPEED[0],2.));
-      gsl_matrix_set(S,1,1,pow(SPEED[1],2.));
-      gsl_matrix_set(S,2,2,pow(SPEED[2],2.));
-      gsl_matrix_memcpy(L,S);
-      gsl_linalg_cholesky_decomp1(L);
-
       for(k=0;k<3;k++){
         gsl_vector_set(pos_temp2, k, Gaussian_proposal(0., 1., gsl_rng_uniform (r), gsl_rng_uniform (r)));
       }
@@ -251,12 +283,8 @@ chain_res LHSampling(int proposal){
       gsl_blas_dgemv (CblasNoTrans,
                   1., L, pos_temp2,
                   0., pos_temp);
-      gsl_vector_add(pos_temp,pos_ini);
+      gsl_vector_add(pos_temp,pos_mean_p1);
       gsl_vector_add(pos_temp,pos);
-
-      gsl_vector_free(pos_temp2);
-      gsl_matrix_free(S);
-      gsl_matrix_free(L);
 
     }
 
@@ -311,7 +339,8 @@ chain_res LHSampling(int proposal){
   // Check of correlation (with lag)
   if(LAG_TEST==1){
 
-    C_Delta(chain,result,0.1);
+    printf(" Computing Lag function..\n");
+    C_Delta(chain,result,LAG_TEST_STOP_RATIO);
 
   }
 
@@ -320,8 +349,13 @@ chain_res LHSampling(int proposal){
   free(chain);
 
   gsl_vector_free(pos_ini);
+  gsl_vector_free(pos_mean_p1);
   gsl_vector_free(pos);
   gsl_rng_free(r);
+
+  gsl_vector_free(pos_temp2);
+  gsl_matrix_free(S);
+  gsl_matrix_free(L);
 
   #if CSV==1
     fclose(fp);
