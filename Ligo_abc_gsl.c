@@ -12,7 +12,7 @@
 #include <sys/time.h>
 #include <omp.h>
 
-#define CSV 0
+#define CSV 1
 
 // PROGRAM VARIABLES
 // Variables for parallelization with OpenMP
@@ -52,6 +52,7 @@ typedef struct chain {
   gsl_matrix * covariance;
 } chain_res;
 
+
 inline double cT2 (gsl_vector * pos) {
 
   double a=gsl_vector_get(pos,0), b=gsl_vector_get(pos,1), c=gsl_vector_get(pos,2);
@@ -60,24 +61,34 @@ inline double cT2 (gsl_vector * pos) {
 
 }
 
+inline double cS2 (gsl_vector * pos) {
+
+  double a=gsl_vector_get(pos,0), b=gsl_vector_get(pos,1), c=gsl_vector_get(pos,2);
+
+  return (b-c)*(2.0*a-2.0)/(2.0*a-b-2.0)/(4.0-4.0*a-b-3.0*c);
+
+}
+
+
 inline double rho(gsl_vector * pos){
 
   double a=gsl_vector_get(pos,0), b=gsl_vector_get(pos,1), c=gsl_vector_get(pos,2);
 
   // Value of the sound speed squared
-  double cS2=(b-c)*(2.0*a-2.0)/(2.0*a-b-2.0)/(4.0-4.0*a-b-3.0*c);
+  double cs2=cS2(pos);
   // Value of the tensor speed squared
-  double cT2=(2.0-2.0*a)/(2.0-2.0*a+b);
+  double ct2=cT2(pos);
   // Value of the argument of the Gaussian in the Likelihood
-  double delta=fabs(sqrt(cT2)-1.0);
+  double delta=fabs(sqrt(ct2)-1.0);
 
   // This is the experimental sigma on cT2
   double sigma = 4.5e-16;
+
   double result = 0.;
 
   // With these ifs I'm introducing the constraints on cT2, cS2 and on the parameters a and c
   // To eliminate these constraints, put CT2_CONSTR=0 at the beginning of the file
-  if (CT2_CONSTR==1 && a>=-1. && a<=1. && c>=-4.0/3.0 && c<=0. && cT2>=0.0 && cT2<= 1.0 && cS2>=0.0 && cS2<=1.0){
+  if (CT2_CONSTR==1 && a>=-1. && a<=1. && c>=0. && ct2>=0.0 && ct2<= 1.0 && cs2<=0.0){
     result=exp(-0.5 * pow(delta/sigma,2.0) );
   }
   else if(CT2_CONSTR==1){
@@ -313,7 +324,8 @@ chain_res LHSampling(int proposal){
     #if CSV==1
       double rho_val=rho(pos);
       double cT2_val=cT2(pos);
-      fprintf(fp, "%.16e,%.16e,%.16e,%.16e,%.16e\n", chain[i][0], chain[i][1], chain[i][2], rho_val, cT2_val);
+      double cS2_val=cS2(pos);
+      fprintf(fp, "%.8e,%.8e,%.8e,%.8e,%.8e,%.8e\n", chain[i][0], chain[i][1], chain[i][2], rho_val, cT2_val, cS2_val);
     #endif
 
     gsl_vector_free(pos_temp);
