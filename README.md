@@ -8,4 +8,4 @@ Note on installation and compilation (on Mac):
 - run with ./Ligo_abc_gsl.exe
 - (optional) for computational time tests: time ./Ligo_abc_gsl.exe
 
-This is necessary due to some incompatibilities with inline functions on the default Mac compiler (clang), and for OpenMP to work properly.
+Use of gcc from Homebrew is necessary to avoid some incompatibilities with inline functions on the default Mac compiler (clang), and for OpenMP to work properly.
