@@ -1,4 +1,4 @@
-// Compile with: gcc-7 -O2 -DHAVE_INLINE -DGSL_RANGE_CHECK_OFF Ligo_abc_gsl.c -o Ligo_abc_gsl.exe -lgsl -lgslcblas -fopenmp
+// Compile with: gcc-8 -O2 -DHAVE_INLINE -DGSL_RANGE_CHECK_OFF Ligo_abc_gsl.c -o Ligo_abc_gsl.exe -lgsl -lgslcblas -fopenmp
 // Run with: ./Ligo_abc_gsl.exe
 // Test running time: time ./Ligo_abc_gsl.exe
 
@@ -88,6 +88,10 @@ inline double rho(gsl_vector * pos){
 
   // With these ifs I'm introducing the constraints on cT2, cS2 and on the parameters a and c
   // To eliminate these constraints, put CT2_CONSTR=0 at the beginning of the file
+  //
+  // OLD constraint: CT2_CONSTR==1 && a>=-1. && a<=1. && c>=-4.0/3.0 && c<=0. && cT2>=0.0 && cT2<= 1.0 && cS2>=0.0 && cS2<=1.0
+  //
+  // NEW (correct) constraint
   if (CT2_CONSTR==1 && a>=-1. && a<=1. && c>=0. && ct2>=0.0 && ct2<= 1.0 && cs2<=0.0){
     result=exp(-0.5 * pow(delta/sigma,2.0) );
   }
@@ -229,8 +233,8 @@ chain_res LHSampling(int proposal){
       gsl_vector_set(pos_ini,k,SPEED[k]*random_number);
     }
     else {
-      double random_number = - gsl_rng_uniform (r);
-      gsl_vector_set(pos_ini,k,SPEED[k]*random_number/2.);
+      double random_number = gsl_rng_uniform (r);
+      gsl_vector_set(pos_ini,k,SPEED[k]*random_number);
     }
   }
 
@@ -257,13 +261,13 @@ chain_res LHSampling(int proposal){
   #if CSV==1
     FILE *fp;
     char filename[25];
-    sprintf(filename,"Ligo_abc_Chain_t%d.csv",id_thread);
+    sprintf(filename,"Ligo_abc_%d.txt",id_thread);
     fp = fopen (filename, "w+");
   #endif
 
   double (* chain)[3] = malloc(sizeof(* chain) * N);
 
-  int i = 0; int j = 0;
+  int i = 0; int j = 0; int rc = 1;
 
   while (i<N) {
 
@@ -271,11 +275,12 @@ chain_res LHSampling(int proposal){
 
     gsl_vector * pos_temp = gsl_vector_calloc(3);
 
-    // NOTE: Introducing the proposal distribution here
+    // NOTE: Introducing the proposal distributions here
 
     if(proposal==0){
 
       for(k=0;k<3;k++){
+
         double random_number = 2. * gsl_rng_uniform (r) - 1.;
         gsl_vector_set(pos_temp, k, SPEED[k]*random_number);
 
@@ -288,7 +293,9 @@ chain_res LHSampling(int proposal){
     else if(proposal=!0){
 
       for(k=0;k<3;k++){
+
         gsl_vector_set(pos_temp2, k, Gaussian_proposal(0., 1., gsl_rng_uniform (r), gsl_rng_uniform (r)));
+
       }
 
       gsl_blas_dgemv (CblasNoTrans,
@@ -301,18 +308,37 @@ chain_res LHSampling(int proposal){
 
     double f1 = rho(pos_temp);
 
+    // NOTE: here we also print data in .csv file (if CSV==1) in Getdist ready format
+    // Getdist output with (no commas): repetitions count log(rho) {parameters} {(optional) other outputs - not considered by Getdist}
+
     if (f1>f0) {
 
       gsl_vector_memcpy(pos,pos_temp);
       j++;
 
+      #if CSV==1
+      fprintf(fp, "%d %.8e %.8e %.8e %.8e\n", rc, -log(rho(pos)), gsl_vector_get(pos,0), gsl_vector_get(pos,1), gsl_vector_get(pos,2));
+      #endif
+
+      rc = 1;
+
     }
     else {
 
       double ra = gsl_rng_uniform (r);
+
       if (ra<f1/f0) {
         gsl_vector_memcpy(pos,pos_temp);
         j++;
+
+        #if CSV==1
+        fprintf(fp, "%d %.8e %.8e %.8e %.8e\n", rc, -log(rho(pos)), gsl_vector_get(pos,0), gsl_vector_get(pos,1), gsl_vector_get(pos,2));
+        #endif
+
+        rc = 1;
+      }
+      else{
+        rc++;
       }
 
     }
@@ -320,13 +346,6 @@ chain_res LHSampling(int proposal){
     for(k=0;k<3;k++){
       chain[i][k]=gsl_vector_get(pos,k);
     }
-
-    #if CSV==1
-      double rho_val=rho(pos);
-      double cT2_val=cT2(pos);
-      double cS2_val=cS2(pos);
-      fprintf(fp, "%.8e,%.8e,%.8e,%.8e,%.8e,%.8e\n", chain[i][0], chain[i][1], chain[i][2], rho_val, cT2_val, cS2_val);
-    #endif
 
     gsl_vector_free(pos_temp);
     i++;
@@ -418,7 +437,7 @@ void GR_Test(chain_res * chain_results) {
   printf(" \t- R_a : %f\n", R(gsl_vector_get(sigma2_chain,0), gsl_vector_get(sigma2_mean,0)));
   printf(" \t- R_b : %f\n", R(gsl_vector_get(sigma2_chain,1), gsl_vector_get(sigma2_mean,1)));
   printf(" \t- R_c : %f\n", R(gsl_vector_get(sigma2_chain,2), gsl_vector_get(sigma2_mean,2)));
-  printf(" Converge if (approximately) R < 1.2.\n");
+  printf(" Converge if (approximately) R < 1.2. For better results R < 1.01.\n");
   printf(" -------------------------------------------------- \n");
 
   gsl_vector_free(mean);

@@ -1,9 +1,14 @@
 *.exe
-*.ipynb
 *.pdf
 *.csv
+*.txt
 *.png
 *.m
 *.mlx
 
+*.py_mcsamples
+
+Plot_density.ipynb
+.ipynb_checkpoints
+Ligo_abc.c
 Ligo_ab.c
