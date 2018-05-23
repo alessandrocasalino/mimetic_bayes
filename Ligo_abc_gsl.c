@@ -65,7 +65,15 @@ inline double cS2 (gsl_vector * pos) {
 
   double a=gsl_vector_get(pos,0), b=gsl_vector_get(pos,1), c=gsl_vector_get(pos,2);
 
-  return (b-c)*(2.0*a-2.0)/(2.0*a-b-2.0)/(4.0-4.0*a-b-3.0*c);
+  return (b-c)*(2.0*a-2.0)/(2.0*a-b-2.0)/(4.0-4.0*a-b+3.0*c);
+
+}
+
+inline double MPl2 (gsl_vector * pos) {
+
+  double a=gsl_vector_get(pos,0), b=gsl_vector_get(pos,1), c=gsl_vector_get(pos,2);
+
+  return 4.0-4.0*a-b+3.0*c;
 
 }
 
@@ -78,6 +86,8 @@ inline double rho(gsl_vector * pos){
   double cs2=cS2(pos);
   // Value of the tensor speed squared
   double ct2=cT2(pos);
+  // Value of the Planck mass rescaling factor
+  double Mpl2=MPl2(pos);
   // Value of the argument of the Gaussian in the Likelihood
   double delta=fabs(sqrt(ct2)-1.0);
 
@@ -89,10 +99,10 @@ inline double rho(gsl_vector * pos){
   // With these ifs I'm introducing the constraints on cT2, cS2 and on the parameters a and c
   // To eliminate these constraints, put CT2_CONSTR=0 at the beginning of the file
   //
-  // OLD constraint: CT2_CONSTR==1 && a>=-1. && a<=1. && c>=-4.0/3.0 && c<=0. && cT2>=0.0 && cT2<= 1.0 && cS2>=0.0 && cS2<=1.0
+  // OLD constraint: CT2_CONSTR==1 && a>=-1. && a<=1. && b>=0. && b<=1. && ct2>=0.0 && ct2<= 1.0 && cs2>=0.0 && cs2<=1.0
   //
-  // NEW (correct) constraint
-  if (CT2_CONSTR==1 && a>=-1. && a<=1. && c>=0. && ct2>=0.0 && ct2<= 1.0 && cs2<=0.0){
+  // NEW (correct) constraint: CT2_CONSTR==1 && a>=-1. && a<=1. && c>=0. && c<=1. && ct2>=0.0 && ct2<= 1.0 && cs2<=0.0
+  if (CT2_CONSTR==1 && a>=-10. && a<=1. && Mpl2>=0. && c<=1. && ct2>=0.0 && ct2<= 1.0 && cs2<=0.0){
     result=exp(-0.5 * pow(delta/sigma,2.0) );
   }
   else if(CT2_CONSTR==1){
