@@ -36,7 +36,7 @@ int LAG_TEST = 0;
 double LAG_TEST_STOP_RATIO = 0.001;
 
 // Write (in the terminal) debug informations and informations that might be considered in order to improve results
-int DEBUG = 0;
+int DEBUG = 1;
 
 // Write .csv files
 #define CSV 1
@@ -53,7 +53,7 @@ double SPEED[] = {1e-1,5e-16,4e-16};
 // Mean value for Gaussian proposal (PROPOSAL=1)
 double MEAN_P1[] = {0.,0.,0.};
 // Number of points in every chain
-int N = 2e6;
+int N = 1e6;
 
 
 // PHYSICAL VARIABLES
@@ -577,7 +577,7 @@ int main(){
 
     printf("\n Doing parallelized workflow. Please wait. \n\n");
     if(DEBUG==1) printf(" NOTE: Some WARNING might be shown. \n");
-    if(DEBUG==1) printf("       Consider to stop the program and check the parameters if WARNINGs appear. \n");
+    if(DEBUG==1) printf("       Consider to stop the program and check the parameters if WARNINGs appear. \n\n");
 
     #pragma omp parallel for
     for(i=1;i<=N_CHAINS;i++)
@@ -679,16 +679,22 @@ int main(){
       double sigma_a = sqrt(fabs(gsl_matrix_get(chain_results[0].covariance,0,0)));
       if(PROPOSAL==1 && (fabs(mean_a-MEAN_P1[0])/fabs(mean_a+MEAN_P1[0])>3.*sigma_a)) {
         printf(" - A burn-in removal might be needed: Try with MEAN_P1[0] = %e.\n",mean_a);
+        printf("   Note that this can improve but also worsen the results.\n");
+        printf("   Revert the result and make a burn-in removal instead if the results get worse.\n");
       }
       double mean_b = gsl_vector_get(chain_results[0].mean,1);
       double sigma_b = sqrt(fabs(gsl_matrix_get(chain_results[0].covariance,1,1)));
       if(PROPOSAL==1 && (fabs(mean_b-MEAN_P1[1])/fabs(mean_b+MEAN_P1[1])>3.*sigma_b)) {
         printf(" - A burn-in removal might be needed: Try with MEAN_P1[1] = %e.\n",mean_b);
+        printf("   Note that this can improve but also worsen the results.\n");
+        printf("   Revert the result and make a burn-in removal instead if the results get worse.\n");
       }
       double mean_c = gsl_vector_get(chain_results[0].mean,2);
       double sigma_c = sqrt(fabs(gsl_matrix_get(chain_results[0].covariance,2,2)));
       if(PROPOSAL==1 && (fabs(mean_a-MEAN_P1[2])/fabs(mean_a+MEAN_P1[2])>3.*sigma_c)) {
         printf(" - A burn-in removal might be needed: Try with MEAN_P1[2] = %e .\n",mean_c);
+        printf("   Note that this can improve but also worsen the results.\n");
+        printf("   Revert the result and make a burn-in removal instead if the results get worse.\n");
       }
 
       if(k==0){
