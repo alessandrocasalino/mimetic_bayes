@@ -1,4 +1,5 @@
 *.exe
+*.o
 *.pdf
 *.csv
 *.txt
@@ -6,9 +7,14 @@
 *.m
 *.mlx
 
+*.covmat
+*.corr
+
 *.py_mcsamples
 
 Plot_density.ipynb
 .ipynb_checkpoints
 Ligo_abc.c
 Ligo_ab.c
+
+*.DS_Store

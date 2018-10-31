@@ -5,8 +5,9 @@ Simple Bayesian inference software for mimetic gravity
 ## Installation and running
 
 Note on installation and compilation (on Mac):
-- install gcc-8 with Homebrew
-- compile using gcc-8 -O2 -DHAVE_INLINE -DGSL_RANGE_CHECK_OFF Ligo_abc_gsl.c -o Ligo_abc_gsl.exe -lgsl -lgslcblas -fopenmp
+- install gcc-X (where X must be substituted with the current last available version of gcc) with Homebrew
+- install gsl library with Homebrew (and link them if necessary)
+- compile using gcc-X -O2 -DHAVE_INLINE -DGSL_RANGE_CHECK_OFF Ligo_abc_gsl.c -o Ligo_abc_gsl.exe -lgsl -lgslcblas -fopenmp
 - run with ./Ligo_abc_gsl.exe
 - (optional) for computational time tests: time ./Ligo_abc_gsl.exe
 
